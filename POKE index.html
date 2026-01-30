@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PokeDex National - 1025 English</title>
+    <style>
+        :root {
+            --poke-red: #ff1f1f;
+            --grass: #7AC74C; --fire: #EE8130; --water: #6390F0; --bug: #A6B91A;
+            --normal: #A8A77A; --poison: #A33EA1; --electric: #F7D02C; --ground: #E2BF65;
+            --fairy: #D685AD; --fighting: #C22E28; --psychic: #F95587; --rock: #B6A136;
+            --ghost: #735797; --ice: #96D9D6; --dragon: #6F35FC; --dark: #705746;
+            --steel: #B7B7CE; --flying: #A98FF3;
+        }
+
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #fdfdfd; margin: 0; }
+        header { background: var(--poke-red); color: white; padding: 15px; text-align: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .search-area { max-width: 600px; margin: 10px auto; padding: 0 15px; }
+        #search { width: 100%; padding: 10px 20px; border-radius: 30px; border: 2px solid #eee; outline: none; font-size: 16px; }
+
+        #dex-grid {
+            display: grid;
+            grid-template-columns: repeat(9, 1fr); /* 9 Pokemon per row */
+            gap: 8px; padding: 12px; max-width: 1800px; margin: 0 auto;
+        }
+
+        @media (max-width: 1400px) { #dex-grid { grid-template-columns: repeat(6, 1fr); } }
+        @media (max-width: 800px) { #dex-grid { grid-template-columns: repeat(3, 1fr); } }
+
+        .card {
+            background: white; border-radius: 12px; padding: 10px; text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05); transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid #f0f0f0; cursor: pointer;
+        }
+        .card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); border-color: var(--poke-red); }
+
+        .id-label { font-size: 11px; color: #bbb; font-weight: bold; }
+        .card img { width: 90%; height: auto; margin: 5px 0; }
+        .name-en { font-size: 14px; font-weight: 700; text-transform: capitalize; color: #222; margin-bottom: 6px; }
+
+        .types { display: flex; justify-content: center; gap: 4px; }
+        .type-tag { font-size: 9px; padding: 2px 6px; border-radius: 5px; color: white; font-weight: bold; text-transform: uppercase; }
+        
+        #loader { text-align: center; padding: 30px; font-weight: bold; color: #999; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1 style="margin:0; font-size: 24px;">National PokeDex</h1>
+    <div class="search-area">
+        <input type="text" id="search" placeholder="Search by name or number...">
+    </div>
+</header>
+
+<div id="dex-grid"></div>
+<div id="loader">Syncing with Professor Oak...</div>
+
+<script>
+    let masterList = [];
+    const grid = document.getElementById('dex-grid');
+
+    async function init() {
+        try {
+            // Fetch all 1025 entries in one go
+            const res = await fetch('https://pokeapi.co/api/v2/pokemon?limit=1025');
+            const data = await res.json();
+            masterList = data.results;
+            
+            // Start rendering in batches for smooth performance
+            renderBatch(0, 1025);
+            document.getElementById('loader').style.display = 'none';
+        } catch (e) {
+            document.getElementById('loader').innerText = "Failed to load data.";
+        }
+    }
+
+    async function renderBatch(start, end) {
+        const batch = masterList.slice(start, end);
+        
+        // Process in chunks to keep the browser responsive
+        const chunkSize = 50;
+        for (let i = 0; i < batch.length; i += chunkSize) {
+            const chunk = batch.slice(i, i + chunkSize);
+            const details = await Promise.all(chunk.map(p => fetch(p.url).then(r => r.json())));
+
+            details.forEach(p => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.dataset.id = p.id;
+                card.dataset.name = p.name;
+
+                const types = p.types.map(t => 
+                    `<span class="type-tag" style="background:var(--${t.type.name})">${t.type.name}</span>`
+                ).join('');
+
+                // High quality artwork
+                const imgUrl = p.sprites.other['official-artwork'].front_default || p.sprites.front_default;
+
+                card.innerHTML = `
+                    <div class="id-label">#${p.id.toString().padStart(3, '0')}</div>
+                    <img src="${imgUrl}" loading="lazy">
+                    <div class="name-en">${p.name.replace(/-/g, ' ')}</div>
+                    <div class="types">${types}</div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+    }
+
+    // Fast Filter
+    document.getElementById('search').addEventListener('input', (e) => {
+        const query = e.target.value.toLowerCase();
+        document.querySelectorAll('.card').forEach(card => {
+            const isMatch = card.dataset.id.includes(query) || card.dataset.name.includes(query);
+            card.style.display = isMatch ? 'block' : 'none';
+        });
+    });
+
+    init();
+</script>
+</body>
+</html>
